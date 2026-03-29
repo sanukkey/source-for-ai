@@ -2,51 +2,35 @@
 
 import { useState } from 'react';
 import { Play, Square, Activity, Heart, Wind, Zap } from 'lucide-react';
+import { useYouTubeAudio } from '@/utils/useYouTubeAudio';
 
 const EMOTIONS = [
-  {
-    label: 'ストレス解放',
-    icon: Activity,
-    freq: 528,
-    ytId: '1ZYbU82GVz4',           // 既存の確認済みピアノ曲を維持
-    desc: '528Hz - 疲労回復と奇跡のヒーリングピアノ',
-  },
-  {
-    label: '愛と奇跡',
-    icon: Heart,
-    freq: 528,
-    ytId: '1MPRbX7ACh8',           // 528Hz Positive Transformation / Meditative Mind
-    desc: '528Hz - 愛の周波数・ポジティブな変容',
-  },
-  {
-    label: '宇宙の静寂',
-    icon: Wind,
-    freq: 432,
-    ytId: 'h4IzkCm0v_8',           // 432Hz Deep Healing / Meditative Mind
-    desc: '432Hz - 宇宙との一体感・深い癒やし',
-  },
-  {
-    label: '浄化・表現',
-    icon: Zap,
-    freq: 741,
-    ytId: '2kxRi-ZmogI',           // 741Hz Removes Toxins / Meditative Mind
-    desc: '741Hz - 毒素の解放・直感と表現力の覚醒',
-  },
+  { label: 'ストレス解放', icon: Activity, freq: 528, ytId: '1ZYbU82GVz4', desc: '528Hz - 疲労回復と奇跡のヒーリングピアノ' },
+  { label: '愛と奇跡',    icon: Heart,    freq: 528, ytId: '1MPRbX7ACh8', desc: '528Hz - 愛の周波数・ポジティブな変容' },
+  { label: '宇宙の静寂',  icon: Wind,     freq: 432, ytId: 'h4IzkCm0v_8', desc: '432Hz - 宇宙との一体感・深い癒やし' },
+  { label: '浄化・表現',  icon: Zap,      freq: 741, ytId: '2kxRi-ZmogI', desc: '741Hz - 毒素の解放・直感と表現力の覚醒' },
 ];
 
 export default function FrequencyOracle() {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying]       = useState(false);
   const [selectedEmotion, setSelectedEmotion] = useState(EMOTIONS[0]);
+  const { audioRef, play, stop, apiReady } = useYouTubeAudio();
 
-  const togglePlay = () => setIsPlaying(p => !p);
-
-  // 感情を選んだ瞬間に再生スタート（すでに再生中でも切り替える）
+  // 感情カードをタップ → ユーザージェスチャー内で play() を呼ぶ
   const handleEmotionSelect = (emotion: typeof EMOTIONS[0]) => {
-    setIsPlaying(false); // 一旦停止してiframeをアンマウント
-    setTimeout(() => {
-      setSelectedEmotion(emotion);
-      setIsPlaying(true); // 新しい曲でマウント
-    }, 50);
+    setSelectedEmotion(emotion);
+    setIsPlaying(true);
+    play(emotion.ytId); // ← クリックハンドラ内 = ユーザージェスチャー → iOS で再生許可
+  };
+
+  const handleToggle = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      stop();
+    } else {
+      setIsPlaying(true);
+      play(selectedEmotion.ytId);
+    }
   };
 
   return (
@@ -96,16 +80,17 @@ export default function FrequencyOracle() {
               {selectedEmotion.freq}
               <span className="text-3xl text-foreground/40 ml-1">Hz</span>
             </h2>
-            <p className="text-lg font-bold text-foreground mb-2">{selectedEmotion.label}</p>
+            <p className="text-lg font-bold text-foreground mb-1">{selectedEmotion.label}</p>
             <p className="text-foreground/70 font-medium mb-10 max-w-xs leading-relaxed text-sm">
               {selectedEmotion.desc}
             </p>
 
             <button
-              onClick={togglePlay}
-              className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-xl hover:scale-110 ${
+              onClick={handleToggle}
+              disabled={!apiReady}
+              className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-xl hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed ${
                 isPlaying
-                  ? 'bg-white dark:bg-[#1c1310] border-2 border-primary-pink text-primary-pink cursor-pointer'
+                  ? 'bg-white dark:bg-[#1c1310] border-2 border-primary-pink text-primary-pink'
                   : 'bg-gradient-to-tr from-primary-orange to-primary-pink text-white hover:shadow-orange-500/40'
               }`}
             >
@@ -114,29 +99,21 @@ export default function FrequencyOracle() {
                 : <Play className="w-10 h-10 ml-2 fill-current" />
               }
             </button>
+
             <p className="mt-6 text-sm text-foreground/50 font-medium tracking-widest">
-              {isPlaying ? 'ヒーリングピアノ 共鳴中...' : '波動を合わせる'}
+              {!apiReady
+                ? '読み込み中...'
+                : isPlaying
+                ? 'ヒーリングピアノ 共鳴中...'
+                : '波動を合わせる'
+              }
             </p>
           </div>
         </div>
       </div>
 
-      {/* 隠しYouTube iframe
-          ・isPlaying が true のときだけマウント
-          ・key={selectedEmotion.ytId} で動画IDが変わるたびに強制再マウント → autoplay 再発火
-          ・handleEmotionSelect で一度 false にしてから true にするため確実に切り替わる */}
-      <div className="w-0 h-0 overflow-hidden opacity-0 pointer-events-none absolute">
-        {isPlaying && (
-          <iframe
-            key={selectedEmotion.ytId}
-            width="1"
-            height="1"
-            src={`https://www.youtube.com/embed/${selectedEmotion.ytId}?autoplay=1&loop=1&playlist=${selectedEmotion.ytId}&controls=0&mute=0`}
-            allow="autoplay; encrypted-media"
-            title={`${selectedEmotion.freq}Hz Healing Piano`}
-          />
-        )}
-      </div>
+      {/* YouTube IFrame API のマウントポイント（不可視） */}
+      <div ref={audioRef} className="w-px h-px absolute opacity-0 overflow-hidden pointer-events-none" />
     </div>
   );
 }

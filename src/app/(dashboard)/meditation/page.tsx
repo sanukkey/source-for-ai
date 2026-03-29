@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Wind, Sparkles, Play, Square } from 'lucide-react';
+import { useYouTubeAudio } from '@/utils/useYouTubeAudio';
 
 type Phase = 'inhale' | 'hold' | 'exhale';
 
 const DURATIONS: Record<Phase, number> = {
-  inhale: 3000, // 3秒：鼻から吸う
-  hold:   1000, // 1秒：止める（タメ）
-  exhale: 5000, // 5秒：口から吐く
+  inhale: 3000,
+  hold:   1000,
+  exhale: 5000,
 };
 
 const NEXT_PHASE: Record<Phase, Phase> = {
@@ -17,8 +18,7 @@ const NEXT_PHASE: Record<Phase, Phase> = {
   exhale: 'inhale',
 };
 
-// 確認済みの528Hzヒーリングピアノ（「安らぎの周波数」と同じ音源）
-const MEDITATION_BGM_YT = '1ZYbU82GVz4';
+const MEDITATION_BGM_YT = '1ZYbU82GVz4'; // 528Hz ヒーリングピアノ
 
 export default function MeditationPage() {
   const [isRunning, setIsRunning]       = useState(false);
@@ -30,24 +30,22 @@ export default function MeditationPage() {
 
   const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { audioRef, play, stop } = useYouTubeAudio();
 
   const clearAllTimers = () => {
     if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
     if (countTimerRef.current) clearInterval(countTimerRef.current);
   };
 
-  // フェーズ開始（再帰的に次フェーズへ）
   const startPhase = (p: Phase) => {
     setPhase(p);
     setSubCount(1);
     if (countTimerRef.current) clearInterval(countTimerRef.current);
 
     if (p === 'inhale') {
-      // バーを瞬時にリセット → 3秒で満ちる
       setBarDuration(0);
       setBarWidth(0);
       setTimeout(() => { setBarDuration(DURATIONS.inhale); setBarWidth(100); }, 32);
-      // カウント 1→2→3
       let c = 1;
       countTimerRef.current = setInterval(() => {
         c++;
@@ -55,16 +53,12 @@ export default function MeditationPage() {
       }, DURATIONS.inhale / 3);
 
     } else if (p === 'hold') {
-      // バー100%のまま止まる（transitionなし）
       setBarDuration(0);
       setBarWidth(100);
-      // カウント「1」を表示したまま動かさない
 
-    } else { // exhale
-      // バーが5秒で空になる
+    } else {
       setBarDuration(DURATIONS.exhale);
       setBarWidth(0);
-      // カウント 1→2→3→4→5
       let c = 1;
       countTimerRef.current = setInterval(() => {
         c++;
@@ -78,58 +72,52 @@ export default function MeditationPage() {
     }, DURATIONS[p]);
   };
 
+  // ボタンタップ → ユーザージェスチャー内で play() / stop() を呼ぶ
   const handleToggle = () => {
     if (isRunning) {
       clearAllTimers();
       setIsRunning(false);
       setBarWidth(0);
       setBarDuration(0);
+      stop(); // ← ユーザージェスチャー内で停止
     } else {
       setElapsed(0);
       setIsRunning(true);
+      play(MEDITATION_BGM_YT); // ← ユーザージェスチャー内で再生 → iOS 許可
       startPhase('inhale');
     }
   };
 
-  // 経過タイマー
   useEffect(() => {
     if (!isRunning) return;
     const id = setInterval(() => setElapsed(s => s + 1), 1000);
     return () => clearInterval(id);
   }, [isRunning]);
 
-  // アンマウント時クリーンアップ
   useEffect(() => () => clearAllTimers(), []);
 
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
 
-  // 円のアニメーション
-  // inhale: 3秒かけて膨らむ / hold: 即座に止まる / exhale: 5秒かけて縮む
   const circleScale =
-    !isRunning        ? 'scale-100'      :
-    phase === 'inhale'? 'scale-125'      :
-    phase === 'hold'  ? 'scale-125'      : 'scale-[0.65]';
+    !isRunning         ? 'scale-100'  :
+    phase === 'exhale' ? 'scale-[0.65]' : 'scale-125';
 
   const circleDuration =
-    !isRunning        ? 'duration-500'      :
-    phase === 'inhale'? 'duration-[3000ms]' :
-    phase === 'hold'  ? 'duration-0'        : 'duration-[5000ms]';
+    !isRunning         ? 'duration-500'      :
+    phase === 'inhale' ? 'duration-[3000ms]' :
+    phase === 'hold'   ? 'duration-0'        : 'duration-[5000ms]';
 
-  // フェーズ別テキストとカウント数
   const phaseLabel =
     phase === 'inhale' ? '鼻からゆっくり吸って' :
-    phase === 'hold'   ? '止めて' :
-                         '口からゆっくり吐いて';
+    phase === 'hold'   ? '止めて'               : '口からゆっくり吐いて';
 
   const countNumbers =
-    phase === 'inhale' ? [1, 2, 3] :
-    phase === 'hold'   ? [1]       : [1, 2, 3, 4, 5];
+    phase === 'inhale' ? [1,2,3] : phase === 'hold' ? [1] : [1,2,3,4,5];
 
   return (
     <div className="max-w-lg mx-auto flex flex-col items-center gap-7 pt-4 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-      {/* タイトル */}
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 text-primary-orange mb-2">
           <Wind className="h-6 w-6" />
@@ -149,18 +137,13 @@ export default function MeditationPage() {
             </p>
             <div className="flex items-center gap-3">
               {countNumbers.map(n => (
-                <span
-                  key={n}
-                  className={`text-2xl font-black tabular-nums transition-all duration-200 ${
-                    phase === 'hold'
-                      ? 'text-primary-yellow scale-125 drop-shadow-sm' // hold中は常に強調
-                      : n === subCount
-                      ? 'text-primary-orange scale-125 drop-shadow-sm'
-                      : n < subCount
-                      ? 'text-foreground/25'
-                      : 'text-foreground/15'
-                  }`}
-                >
+                <span key={n} className={`text-2xl font-black tabular-nums transition-all duration-200 ${
+                  phase === 'hold'
+                    ? 'text-primary-yellow scale-125 drop-shadow-sm'
+                    : n === subCount
+                    ? 'text-primary-orange scale-125 drop-shadow-sm'
+                    : n < subCount ? 'text-foreground/25' : 'text-foreground/15'
+                }`}>
                   {n}
                 </span>
               ))}
@@ -179,23 +162,16 @@ export default function MeditationPage() {
       <div className="relative flex items-center justify-center w-64 h-64">
         {isRunning && (
           <>
-            <div
-              className="absolute w-full h-full rounded-full border border-primary-orange/15 animate-ping"
-              style={{ animationDuration: '9s', animationPlayState: phase === 'hold' ? 'paused' : 'running' }}
-            />
-            <div
-              className="absolute w-[82%] h-[82%] rounded-full border border-primary-yellow/10 animate-ping"
-              style={{ animationDuration: '9s', animationDelay: '2s', animationPlayState: phase === 'hold' ? 'paused' : 'running' }}
-            />
+            <div className="absolute w-full h-full rounded-full border border-primary-orange/15 animate-ping"
+              style={{ animationDuration: '9s', animationPlayState: phase === 'hold' ? 'paused' : 'running' }} />
+            <div className="absolute w-[82%] h-[82%] rounded-full border border-primary-yellow/10 animate-ping"
+              style={{ animationDuration: '9s', animationDelay: '2s', animationPlayState: phase === 'hold' ? 'paused' : 'running' }} />
           </>
         )}
-        <div className={`w-44 h-44 rounded-full bg-gradient-to-tr
-          flex items-center justify-center shadow-2xl
-          transition-all ease-in-out ${circleDuration} ${circleScale}
+        <div className={`w-44 h-44 rounded-full bg-gradient-to-tr flex items-center justify-center shadow-2xl transition-all ease-in-out ${circleDuration} ${circleScale}
           ${phase === 'hold' && isRunning
             ? 'from-primary-yellow to-primary-orange shadow-yellow-500/30 opacity-100'
-            : 'from-primary-orange to-primary-pink shadow-orange-500/25'
-          }
+            : 'from-primary-orange to-primary-pink shadow-orange-500/25'}
           ${isRunning ? 'opacity-90' : 'opacity-55'}`}
         >
           <Sparkles className="w-10 h-10 text-white/60" />
@@ -242,18 +218,8 @@ export default function MeditationPage() {
         }
       </button>
 
-      {/* 瞑想BGM（528Hzヒーリングピアノ / 起動中のみ再生） */}
-      <div className="w-0 h-0 overflow-hidden opacity-0 pointer-events-none absolute">
-        {isRunning && (
-          <iframe
-            key="meditation-bgm"
-            width="1" height="1"
-            src={`https://www.youtube.com/embed/${MEDITATION_BGM_YT}?autoplay=1&loop=1&playlist=${MEDITATION_BGM_YT}&controls=0&mute=0`}
-            allow="autoplay; encrypted-media"
-            title="Meditation BGM"
-          />
-        )}
-      </div>
+      {/* YouTube IFrame API マウントポイント（不可視） */}
+      <div ref={audioRef} className="w-px h-px absolute opacity-0 overflow-hidden pointer-events-none" />
     </div>
   );
 }
