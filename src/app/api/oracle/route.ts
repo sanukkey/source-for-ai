@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // 安定性の高い順に試す（gemini-2.5-flash は Vercel で利用不可の場合あり）
-    const tryModels = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    const tryModels = ["gemini-2.0-flash", "gemini-2.0-flash"];
     let text = "";
     let lastError: any = null;
 
