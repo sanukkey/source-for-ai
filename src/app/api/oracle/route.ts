@@ -51,18 +51,19 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // 安定性の高い順に試す（gemini-2.5-flash は Vercel で利用不可の場合あり）
-    const tryModels = ["gemini-1.5-flash", "gemini-1.5-flash"];
+    // 安定性の高い順に試す
+    const tryModels = ["gemini-1.5-flash", "gemini-2.0-flash-lite"];
     let text = "";
     let lastError: any = null;
 
     for (const modelName of tryModels) {
       try {
         console.log(`[Oracle] モデル試行: ${modelName}`);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          systemInstruction: systemPrompt,
-        });
+        // apiVersion: "v1" を明示（SDK デフォルト v1beta では 404 になるため）
+        const model = genAI.getGenerativeModel(
+          { model: modelName, systemInstruction: systemPrompt },
+          { apiVersion: "v1" }
+        );
         const chat = model.startChat({ history: [] });
         const result = await chat.sendMessage(lastMessage);
         text = result.response.text();
