@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // v1beta エンドポイント（SDK デフォルト）で動作するモデルを優先順に試す
-    const tryModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro"];
+    const tryModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
     let text = "";
     let lastError: any = null;
 
